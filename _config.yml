@@ -1,0 +1,11 @@
+name: Blacklyt
+title: "Blacklyt - AI Prompt Engineering"
+
+# GitHub Pages configuration
+github_pages:
+  url: "https://techiral.github.io/blacklyt"
+  branch: "gh-pages"
+
+# Build settings
+markdown: kramdown
+baseurl: "/blacklyt"
