@@ -29,7 +29,10 @@ jobs:
       - name: Build Jekyll Site
         run: |
           bundle install
-          bundle exec jekyll build
+          bundle exec jekyll build || { echo "Jekyll build failed!" && exit 1; }
+
+      - name: Debug Build Output (Optional)
+        run: ls -lah _site
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
