@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Publish to GitHub Pages
 
 on:
   push:
@@ -6,40 +6,34 @@ on:
       - main
 
 jobs:
-  github-pages:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write  # Required for deployment authentication
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-      
-      - name: Setup Ruby
+        uses: actions/checkout@v3
+
+      - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
-          bundler-cache: true  # Caches dependencies properly
+          ruby-version: "3.2"
+          bundler-cache: true # This will cache dependencies
 
-      - name: Setup GitHub Pages
-        uses: actions/configure-pages@v4  # Ensure latest version
-        
-      - name: Build Jekyll Site
+      - name: Update Bundler
         run: |
+          gem update --system
+          bundle update --bundler
+
+      - name: Install dependencies
+        run: |
+          rm -f Gemfile.lock # Remove existing lockfile
           bundle install
-          bundle exec jekyll build || { echo "Jekyll build failed!" && exit 1; }
 
-      - name: Debug Build Output (Optional)
-        run: ls -lah _site
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: github-pages
-          path: _site  # Jekyll output directory
+      - name: Build site
+        run: bundle exec jekyll build
 
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v2
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site

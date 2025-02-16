@@ -8,11 +8,10 @@ jobs:
   lint_and_check_trailing_whitespaces:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v2
         with:
           python-version: "3.8"
 
@@ -24,46 +23,55 @@ jobs:
       - name: Validate CSV structure
         run: |
           echo "Checking CSV structure..."
-          if ! csvclean --dry-run prompts.csv > /tmp/csv_errors.log 2>&1; then
-            echo "::error:: CSV validation failed. Check /tmp/csv_errors.log for details."
+          if ! csvclean -n prompts.csv 2>&1 | tee /tmp/csv_errors.log; then
+            echo "::error::CSV validation failed"
             cat /tmp/csv_errors.log
-            exit 1
-          fi
-
-      - name: Check for BOM and Encoding Issues
-        run: |
-          echo "Checking for UTF-8 BOM..."
-          if [[ $(head -c 3 prompts.csv | xxd -p) == "efbbbf" ]]; then
-            echo "::error:: UTF-8 BOM detected. Please remove it."
             exit 1
           fi
 
       - name: Check CSV format
         run: |
           echo "Checking CSV format..."
-          python - <<EOF
-          import csv, sys
+          if ! python -c '
+          import csv
           with open("prompts.csv", "r", encoding="utf-8") as f:
               reader = csv.reader(f)
               headers = next(reader)
-              expected_headers = ["act", "prompt"]
-              if headers != expected_headers:
-                  print(f"::error:: CSV headers must be {expected_headers}, but got {headers}")
-                  sys.exit(1)
-              for row_num, row in enumerate(reader, start=2):
+              if headers != ["act", "prompt"]:
+                  print("Error: CSV headers must be exactly [act, prompt]")
+                  exit(1)
+              for row_num, row in enumerate(reader, 2):
                   if len(row) != 2:
-                      print(f"::error:: Row {row_num} has {len(row)} columns, expected 2: {row}")
-                      sys.exit(1)
-                  if not row[0].strip() or not row[1].strip():
-                      print(f"::error:: Row {row_num} has empty values")
-                      sys.exit(1)
-          EOF
+                      print(f"Error: Row {row_num} has {len(row)} columns, expected 2")
+                      exit(1)
+                  if not row[0] or not row[1]:
+                      print(f"Error: Row {row_num} has empty values")
+                      exit(1)
+          '; then
+            echo "::error::CSV format check failed"
+            exit 1
+          fi
 
       - name: Check Trailing Whitespaces
         run: |
           echo "Checking for trailing whitespaces..."
-          if grep -E "[[:space:]]+$" prompts.csv; then
-            echo "::error:: Found trailing whitespaces in prompts.csv"
+          if grep -q "[[:space:]]$" prompts.csv; then
+            echo "::error::Found trailing whitespaces in prompts.csv"
+            grep -n "[[:space:]]$" prompts.csv | while read -r line; do
+              echo "Line with trailing whitespace: $line"
+            done
             exit 1
           fi
           echo "No trailing whitespaces found"
+
+      - name: Check for UTF-8 BOM and line endings
+        run: |
+          echo "Checking for UTF-8 BOM and line endings..."
+          if file prompts.csv | grep -q "with BOM"; then
+            echo "::error::File contains UTF-8 BOM marker"
+            exit 1
+          fi
+          if file prompts.csv | grep -q "CRLF"; then
+            echo "::error::File contains Windows-style (CRLF) line endings"
+            exit 1
+          fi
