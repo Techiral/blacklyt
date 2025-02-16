@@ -25,9 +25,10 @@ jobs:
           bundle exec jekyll build
           
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          path: _site  # Ensures GitHub Pages picks the correct directory
+          name: github-pages
+          path: _site  # Jekyll's output folder
 
       - name: Deploy to GitHub Pages
         id: deployment
